@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Providr — Merchant & Kitchen Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #fff; padding: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
+    h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .badge-live { background: #10b981; color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 700; text-transform: uppercase; }
+    
+    /* Merchant Switcher Tabs */
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .tab-btn.active { background: #3b82f6; border-color: #60a5fa; color: #fff; }
+
+    /* Orders Grid */
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+    .order-card { background: #1e293b; border: 1.5px solid #334155; border-radius: 12px; padding: 18px; position: relative; }
+    .order-card.new { border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
+    .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .order-id { font-weight: 800; font-size: 16px; color: #38bdf8; }
+    .order-status { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+    .status-paid { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+    .status-prep { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    
+    .item-list { background: #0f172a; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 14px; }
+    .item-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .item-row:last-child { margin-bottom: 0; }
+    
+    /* Action Buttons */
+    .actions { display: flex; gap: 8px; }
+    .btn-action { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
+    .btn-accept { background: #3b82f6; color: #fff; }
+    .btn-ready { background: #10b981; color: #fff; }
+    .btn-complete { background: #475569; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏪 Providr Merchant Portal <span class="badge-live">Live Kitchen Feed</span></h1>
+    <div style="font-size: 13px; color: #94a3b8;">Auto-refreshing every 5s</div>
+  </div>
+
+  <!-- Switch between Pizzeria and Grocery Hub -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchMerchant('all', this)">All Orders</button>
+    <button class="tab-btn" onclick="switchMerchant('pizzeria', this)">🍕 Bella Napoli Pizzeria</button>
+    <button class="tab-btn" onclick="switchMerchant('grocery', this)">🛒 QuickHub Groceries</button>
+  </div>
+
+  <div id="ordersContainer" class="orders-grid">
+    <p style="color: #94a3b8;">Loading orders from database...</p>
+  </div>
+
+  <script>
+    let currentFilter = 'all';
+
+    // Play subtle audio alert for new incoming orders
+    function playChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    async function fetchOrders() {
+      try {
+        const res = await fetch('/api/merchant/orders');
+        const orders = await res.json();
+        const container = document.getElementById('ordersContainer');
+        container.innerHTML = '';
+
+        if (!orders || orders.length === 0) {
+          container.innerHTML = '<p style="color: #94a3b8;">No active orders yet.</p>';
+          return;
+        }
+
+        orders.forEach(order => {
+          const card = document.createElement('div');
+          card.className = `order-card ${order.status.includes('PAID') ? 'new' : ''}`;
+
+          let itemsHtml = '';
+          if (Array.isArray(order.items)) {
+            order.items.forEach(it => {
+              itemsHtml += `<div class="item-row">
+                <span>${it.name || it.note || 'Item'}</span>
+                <span style="color: #94a3b8;">€${Number(it.price || 0).toFixed(2)}</span>
+              </div>`;
+            });
+          }
+
+          card.innerHTML = `
+            <div class="order-top">
+              <span class="order-id">${order.id}</span>
+              <span class="order-status status-paid">${order.status}</span>
+            </div>
+            <div class="item-list">
+              ${itemsHtml}
+              <div style="border-top: 1px solid #334155; margin-top: 8px; padding-top: 6px; display: flex; justify-content: space-between; font-weight: 700;">
+                <span>Total Value</span>
+                <span style="color: #10b981;">€${Number(order.total_amount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn-action btn-accept" onclick="updateStatus('${order.id}', 'IN PREPARATION / OVEN')">In Oven / Packing</button>
+              <button class="btn-action btn-ready" onclick="updateStatus('${order.id}', 'READY FOR COURIER PICKUP')">Ready for Courier</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (e) {
+        console.error('Fetch orders error:', e);
+      }
+    }
+
+    async function updateStatus(orderId, newStatus) {
+      await fetch('/api/merchant/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus })
+      });
+      fetchOrders();
+    }
+
+    function switchMerchant(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fetchOrders();
+    }
+
+    // Auto poll orders every 5 seconds
+    fetchOrders();
+    setInterval(fetchOrders, 5000);
+  </script>
+</body>
+</html>

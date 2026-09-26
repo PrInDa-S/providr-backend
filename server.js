@@ -232,7 +232,35 @@ app.post('/api/confirm-payment', async (req, res) => {
     estimatedArrival: '28 minutes',
   });
 });
+// Serve the Merchant Portal
+app.get('/merchant', (req, res) => {
+  res.sendFile(__dirname + '/merchant.html');
+});
 
+// Merchant API: Fetch all recent orders from Supabase
+app.get('/api/merchant/orders', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(15);
+    return res.status(200).json(data || []);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Merchant API: Update Order Status
+app.post('/api/merchant/update-status', async (req, res) => {
+  const { orderId, status } = req.body;
+  try {
+    await supabase.from('orders').update({ status }).eq('id', orderId);
+    return res.status(200).json({ success: true, orderId, status });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Providr backend running on port ${PORT}`);
 });
