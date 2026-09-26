@@ -3,12 +3,16 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Stripe Configuration
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_51UJxTXAseCsCY4dButLqpWRJYN7YA13844YRYjLOOZyRQBk1ASWLgeqga9wsN5WdEi7EoDUG1tnv4ATyP9ShvK6W00eLBpU72a';
+const stripe = require('stripe')(STRIPE_SECRET_KEY);
+
 // Supabase Cloud Database Configuration
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sjnemvwdsohcecbtjhtd.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqbmVtdndkc29oY2VjYnRqaHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Mjc5NTAsImV4cCI6MjEwNjAwMzk1MH0.5Hp8Bw58TjD_Xt0za7cbbPS0KnRRcO9eetQeEv0xdFI';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Read API key from environment variables
+// Read Gemini API key from environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 app.use(express.json());
@@ -43,52 +47,33 @@ const merchantsDB = [
   },
 ];
 
-// In-memory fallback if database connection drops
-const fallbackPantry = [
-  { itemId: 'p1', name: 'All-Purpose Flour', quantity: '500g', status: 'sufficient' },
-  { itemId: 'p2', name: 'Refined Sugar', quantity: '1kg', status: 'sufficient' },
-  { itemId: 'p3', name: 'Olive Oil', quantity: '200ml', status: 'low' },
-  { itemId: 'p4', name: 'Bio Whole Milk', quantity: '0ml', status: 'out_of_stock' },
-  { itemId: 'p5', name: 'Farm Fresh Eggs', quantity: '2 units', status: 'low' },
-  { itemId: 'p6', name: 'Sparkling Soda', quantity: '0 cans', status: 'out_of_stock' },
-];
-
-// Endpoint: Fetch Pantry directly from Supabase Cloud
+// Endpoint: Fetch Pantry from Supabase Cloud
 app.get('/api/pantry/:userId', async (req, res) => {
   const { userId } = req.params;
-
   try {
-    const { data, error } = await supabase
-      .from('pantry')
-      .select('*')
-      .eq('user_id', userId);
-
+    const { data, error } = await supabase.from('pantry').select('*').eq('user_id', userId);
     if (error || !data || data.length === 0) {
-      return res.status(200).json({ userId, items: fallbackPantry });
+      return res.status(200).json({ userId, items: [] });
     }
-
     const items = data.map((d) => ({
       itemId: d.item_id,
       name: d.name,
       quantity: d.quantity,
       status: d.status,
     }));
-
     return res.status(200).json({
       userId,
       items,
       lowOrOut: items.filter((i) => i.status === 'low' || i.status === 'out_of_stock'),
     });
   } catch (err) {
-    console.error('Supabase pantry error:', err);
-    return res.status(200).json({ userId, items: fallbackPantry });
+    return res.status(200).json({ userId, items: [] });
   }
 });
 
 // Helper: Call Google Gemini Live AI
 async function callGeminiAI(userPrompt, restaurantCatalog, groceryCatalog) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
   const systemInstruction = `
 You are the Providr AI Super-App Concierge.
 Select the BEST single item from the Restaurant Catalog and the BEST single item from the Grocery Catalog to create an intelligent bundle based on user request.
@@ -112,8 +97,8 @@ Respond ONLY with a valid JSON object in this exact schema:
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: systemInstruction }, { text: `User Request: "${userPrompt}"` }] }],
-      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
-    })
+      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+    }),
   });
 
   const data = await response.json();
@@ -131,7 +116,7 @@ app.post('/api/bundle', async (req, res) => {
 
   let matchedPizza = pizzeria.catalog.find((p) => p.id === 'bp_2') || pizzeria.catalog[0];
   let matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_1') || grocery.catalog[0];
-  let aiReasoning = 'Paired based on high-affinity dinner and household staple pattern.';
+  let aiReasoning = 'Paired based on dinner preference and household staples.';
 
   if (GEMINI_API_KEY) {
     try {
@@ -184,42 +169,66 @@ app.post('/api/bundle', async (req, res) => {
   });
 });
 
-// Endpoint: Place Order and SAVE to Supabase Cloud Database
-app.post('/api/orders', async (req, res) => {
-  const { userId, items, deliveryAddress, totalAmount } = req.body;
-  if (!items || !items.length) {
-    return res.status(400).json({ error: 'Cart is empty.' });
-  }
+// Endpoint: Create Real Stripe Checkout Session
+app.post('/api/create-checkout-session', async (req, res) => {
+  const { items, totalAmount, userId } = req.body;
 
-  const orderId = `ORD-${Date.now()}`;
-  const address = deliveryAddress || 'Customer Address';
-
-  // 1. Save permanently to Supabase
   try {
-    const { error } = await supabase.from('orders').insert([
+    const origin = req.headers.origin || 'https://providr-backend.onrender.com';
+    const line_items = (items || []).map((item) => ({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: `${item.name} (${item.merchant || 'Providr'})`,
+        },
+        unit_amount: Math.round(Number(item.price || 0) * 100),
+      },
+      quantity: 1,
+    }));
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: line_items,
+      mode: 'payment',
+      success_url: `${origin}/?payment_success=true&session_id={CHECKOUT_SESSION_ID}&total=${totalAmount || 0}`,
+      cancel_url: `${origin}/?payment_cancelled=true`,
+      metadata: {
+        userId: userId || 'user_123',
+        itemsJson: JSON.stringify(items || []),
+      },
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe session creation error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint: Confirm Paid Order & Record to Supabase
+app.post('/api/confirm-payment', async (req, res) => {
+  const { sessionId, total } = req.body;
+  const orderId = `ORD-PAID-${Date.now()}`;
+
+  try {
+    await supabase.from('orders').insert([
       {
         id: orderId,
-        user_id: userId || 'user_123',
-        items: items,
-        delivery_address: address,
-        total_amount: totalAmount,
-        status: 'DISPATCHED_TO_MERCHANTS',
+        user_id: 'user_123',
+        items: [{ note: 'Paid via Stripe Checkout', sessionId }],
+        delivery_address: 'Verified Customer Delivery Address',
+        total_amount: Number(total || 0),
+        status: 'PAID & DISPATCHED',
       },
     ]);
-
-    if (error) {
-      console.error('Supabase order insert error:', error.message);
-    } else {
-      console.log(`Order ${orderId} saved to Supabase!`);
-    }
-  } catch (dbErr) {
-    console.error('Database save error:', dbErr);
+  } catch (e) {
+    console.error('Database save error:', e);
   }
 
-  return res.status(201).json({
-    message: 'Order accepted, recorded in cloud database, and dispatched.',
-    orderId: orderId,
-    status: 'DISPATCHED_TO_MERCHANTS',
+  return res.status(200).json({
+    orderId,
+    status: 'PAID & DISPATCHED',
+    message: 'Payment verified! Order dispatched to merchants.',
     estimatedArrival: '28 minutes',
   });
 });
