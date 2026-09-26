@@ -3,13 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Providr — AI Delivery & Stripe Checkout</title>
+  <title>Providr — AI Delivery with Live GPS</title>
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0b0d11; color: #fff; display: flex; justify-content: center; padding: 18px; }
     .container { width: 100%; max-width: 480px; }
+    
     h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
     p.subtitle { color: #9aa0a6; font-size: 13px; margin-bottom: 20px; }
+
+    /* Gemini Card */
     .gemini-card {
       background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9));
       border: 1.5px solid #818cf8;
@@ -35,20 +40,30 @@
     .btn-mic { background: #1e2430; border: 1px solid #475569; color: #38bdf8; padding: 12px 16px; display: flex; align-items: center; gap: 6px; }
     .btn-mic.listening { background: #dc2626; border-color: #ef4444; color: #fff; animation: pulse 1.2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+    /* Bundle & Tracking Cards */
     .card { background: #131720; border: 1px solid #232b3b; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
     .bundle-item { display: flex; justify-content: space-between; margin-bottom: 12px; }
     .merchant { font-size: 12px; color: #94a3b8; }
     .price { font-weight: 600; font-size: 15px; }
     .divider { height: 1px; background: #232b3b; margin: 12px 0; }
     .ai-reasoning-box { background: rgba(99, 102, 241, 0.1); border-left: 3px solid #818cf8; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; color: #c7d2fe; line-height: 1.4; }
-    .btn-stripe { width: 100%; background: #635bff; color: #fff; font-size: 16px; font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(99, 91, 255, 0.3); }
+    .btn-stripe { width: 100%; background: #635bff; color: #fff; font-size: 16px; font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    
+    /* Live GPS Map Styles */
+    #mapContainer { display: none; }
+    #map { width: 100%; height: 260px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 14px; }
+    .map-badge { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .eta-timer { font-size: 26px; font-weight: 800; color: #10b981; }
+    .status-stage { font-size: 13px; color: #38bdf8; font-weight: 700; }
+    
+    /* Pantry */
     .pantry-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #232b3b; }
     .badge { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 12px; }
     .badge-in { background: rgba(16, 185, 129, 0.2); color: #10b981; }
     .badge-low { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
     .badge-out { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
     .btn-outline { background: #1e2430; border: 1px solid #38bdf8; color: #38bdf8; padding: 6px 12px; font-size: 12px; border-radius: 6px; }
-    .success-card { background: rgba(16, 185, 129, 0.15); border: 1.5px solid #10b981; border-radius: 12px; padding: 18px; margin-bottom: 18px; text-align: center; }
   </style>
 </head>
 <body>
@@ -56,12 +71,22 @@
     <h1>Providr</h1>
     <p class="subtitle">AI-Native Restaurant & Grocery Synchronization</p>
 
-    <!-- Payment Success Notice -->
-    <div id="paymentSuccessNotice" style="display: none;" class="success-card">
-      <div style="font-size: 24px; margin-bottom: 6px;">🎉</div>
-      <h3 style="color: #10b981; font-size: 18px; margin-bottom: 4px;">Payment Succeeded via Stripe!</h3>
-      <p id="paidDetails" style="color: #cbd5e1; font-size: 13px;"></p>
-      <div style="color: #38bdf8; font-weight: 700; font-size: 12px; margin-top: 8px;">Order Recorded in Supabase & Dispatched!</div>
+    <!-- Live GPS Tracking & Interactive Map -->
+    <div id="mapContainer" class="card">
+      <div class="map-badge">
+        <div>
+          <div style="font-size: 11px; color: #818cf8; font-weight: 800; letter-spacing: 0.8px;">LIVE COURIER RADAR</div>
+          <div id="liveStatusText" class="status-stage">Courier Dispatched</div>
+        </div>
+        <div class="eta-timer" id="etaCountdown">28:00</div>
+      </div>
+
+      <!-- The Real Interactive Map -->
+      <div id="map"></div>
+
+      <div style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
+        <strong>Multi-Stop Route:</strong> QuickHub (Groceries) ➔ Bella Napoli (Pizza) ➔ Your Location.
+      </div>
     </div>
 
     <!-- Gemini AI Card -->
@@ -119,7 +144,6 @@
         <span id="totalPrice" style="color: #10b981; font-weight: 800;"></span>
       </div>
 
-      <!-- Real Stripe Payment Button -->
       <button class="btn-stripe" onclick="payWithStripe()">
         <span>💳 Pay with Stripe Checkout</span>
       </button>
@@ -135,33 +159,113 @@
     </div>
   </div>
 
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     let currentBundle = null;
     let selectedLang = 'en-US';
     let recognition = null;
     let isListening = false;
+    let map = null;
+    let courierMarker = null;
 
-    // Check if returning from Stripe Payment
     window.onload = async () => {
       loadPantry();
       const params = new URLSearchParams(window.location.search);
       if (params.get('payment_success')) {
         const sessionId = params.get('session_id');
         const total = params.get('total');
-        const res = await fetch('/api/confirm-payment', {
+        await fetch('/api/confirm-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId, total })
         });
-        const data = await res.json();
-        document.getElementById('paymentSuccessNotice').style.display = 'block';
-        document.getElementById('paidDetails').innerText = `ID: ${data.orderId} • ETA: ${data.estimatedArrival}`;
-        // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
+        // Launch live map
+        startLiveTracking();
       }
     };
 
-    // Voice recognition setup
+    // Live GPS Map Initialization & Courier Simulation
+    function startLiveTracking() {
+      const container = document.getElementById('mapContainer');
+      container.style.display = 'block';
+      container.scrollIntoView({ behavior: 'smooth' });
+
+      // Coordinates for simulation (multi-stop route)
+      const groceryLoc = [50.1109, 8.6821];    // Stop 1: QuickHub Groceries
+      const pizzeriaLoc = [50.1150, 8.6750];   // Stop 2: Bella Napoli Pizzeria
+      const customerLoc = [50.1230, 8.6650];   // Stop 3: Customer Destination
+
+      if (!map) {
+        map = L.map('map').setView([50.1160, 8.6740], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // Merchant and Customer Markers
+        L.marker(groceryLoc).addTo(map).bindPopup('🛒 QuickHub Grocery Hub').openPopup();
+        L.marker(pizzeriaLoc).addTo(map).bindPopup('🍕 Bella Napoli Pizzeria');
+        L.marker(customerLoc).addTo(map).bindPopup('🏠 Customer Location');
+
+        // Draw synchronized multi-stop route line
+        const routeCoords = [groceryLoc, pizzeriaLoc, customerLoc];
+        L.polyline(routeCoords, { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(map);
+
+        // Animated Courier Marker (Custom Scooter Icon)
+        const courierIcon = L.divIcon({
+          html: '<div style="font-size: 26px; transform: translate(-10px, -20px);">🛵</div>',
+          className: 'courier-icon',
+          iconSize: [30, 30]
+        });
+
+        courierMarker = L.marker(groceryLoc, { icon: courierIcon }).addTo(map);
+
+        // Simulate real-time movement
+        simulateCourierMovement([groceryLoc, pizzeriaLoc, customerLoc]);
+      }
+    }
+
+    function simulateCourierMovement(stops) {
+      let progress = 0;
+      const statusText = document.getElementById('liveStatusText');
+      const timer = document.getElementById('etaCountdown');
+      let seconds = 1680;
+
+      setInterval(() => {
+        if (seconds > 0) {
+          seconds--;
+          const m = Math.floor(seconds / 60);
+          const s = seconds % 60;
+          timer.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+      }, 1000);
+
+      // Smooth step-by-step courier motion
+      const moveInterval = setInterval(() => {
+        progress += 0.01;
+        if (progress <= 0.45) {
+          // Traveling to pizzeria
+          statusText.innerText = '📦 Groceries Packed ➔ Picking up hot Pizza';
+          const lat = stops[0][0] + (stops[0] - stops[0][0]) * (progress / 0.45);
+          const lng = stops[0] + (stops - stops[0]) * (progress / 0.45);
+          courierMarker.setLatLng([lat, lng]);
+        } else if (progress <= 0.95) {
+          // Traveling to customer
+          statusText.innerText = '🔥 Pizza & Groceries in Thermal Bag ➔ Out For Delivery';
+          const p = (progress - 0.45) / 0.50;
+          const lat = stops[0] + (stops[0] - stops[0]) * p;
+          const lng = stops + (stops - stops) * p;
+          courierMarker.setLatLng([lat, lng]);
+        } else {
+          statusText.innerText = '✅ Courier Arrived! Enjoy your meal & groceries!';
+          courierMarker.setLatLng(stops);
+          clearInterval(moveInterval);
+        }
+      }, 300);
+    }
+
+    // Voice setup
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SpeechRecognition();
@@ -225,7 +329,6 @@
       }
     }
 
-    // Launch Real Stripe Checkout
     async function payWithStripe() {
       if (!currentBundle) return;
       const btn = document.querySelector('.btn-stripe');
@@ -243,7 +346,6 @@
 
       const data = await res.json();
       if (data.url) {
-        // Redirect to official Stripe checkout
         window.location.href = data.url;
       } else {
         alert('Stripe Error: ' + (data.error || 'Failed to start payment.'));
