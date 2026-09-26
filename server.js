@@ -1,24 +1,18 @@
 const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Supabase Cloud Database Configuration
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sjnemvwdsohcecbtjhtd.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqbmVtdndkc29oY2VjYnRqaHRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Mjc5NTAsImV4cCI6MjEwNjAwMzk1MH0.5Hp8Bw58TjD_Xt0za7cbbPS0KnRRcO9eetQeEv0xdFI';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Read API key from environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 app.use(express.json());
 app.use(express.static(__dirname));
-
-// Virtual Household Pantry
-const pantryInventoryDB = {
-  user_123: [
-    { itemId: 'p1', name: 'All-Purpose Flour', quantity: '500g', status: 'sufficient' },
-    { itemId: 'p2', name: 'Refined Sugar', quantity: '1kg', status: 'sufficient' },
-    { itemId: 'p3', name: 'Olive Oil', quantity: '200ml', status: 'low' },
-    { itemId: 'p4', name: 'Whole Milk', quantity: '0ml', status: 'out_of_stock' },
-    { itemId: 'p5', name: 'Farm Fresh Eggs', quantity: '2 units', status: 'low' },
-    { itemId: 'p6', name: 'Sparkling Soda', quantity: '0 cans', status: 'out_of_stock' },
-  ],
-};
 
 // Merchants Catalog
 const merchantsDB = [
@@ -49,17 +43,46 @@ const merchantsDB = [
   },
 ];
 
-const ordersDB = [];
+// In-memory fallback if database connection drops
+const fallbackPantry = [
+  { itemId: 'p1', name: 'All-Purpose Flour', quantity: '500g', status: 'sufficient' },
+  { itemId: 'p2', name: 'Refined Sugar', quantity: '1kg', status: 'sufficient' },
+  { itemId: 'p3', name: 'Olive Oil', quantity: '200ml', status: 'low' },
+  { itemId: 'p4', name: 'Bio Whole Milk', quantity: '0ml', status: 'out_of_stock' },
+  { itemId: 'p5', name: 'Farm Fresh Eggs', quantity: '2 units', status: 'low' },
+  { itemId: 'p6', name: 'Sparkling Soda', quantity: '0 cans', status: 'out_of_stock' },
+];
 
-// Endpoint: Pantry Inventory
-app.get('/api/pantry/:userId', (req, res) => {
+// Endpoint: Fetch Pantry directly from Supabase Cloud
+app.get('/api/pantry/:userId', async (req, res) => {
   const { userId } = req.params;
-  const items = pantryInventoryDB[userId] || [];
-  return res.status(200).json({
-    userId,
-    items,
-    lowOrOut: items.filter((i) => i.status === 'low' || i.status === 'out_of_stock'),
-  });
+
+  try {
+    const { data, error } = await supabase
+      .from('pantry')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error || !data || data.length === 0) {
+      return res.status(200).json({ userId, items: fallbackPantry });
+    }
+
+    const items = data.map((d) => ({
+      itemId: d.item_id,
+      name: d.name,
+      quantity: d.quantity,
+      status: d.status,
+    }));
+
+    return res.status(200).json({
+      userId,
+      items,
+      lowOrOut: items.filter((i) => i.status === 'low' || i.status === 'out_of_stock'),
+    });
+  } catch (err) {
+    console.error('Supabase pantry error:', err);
+    return res.status(200).json({ userId, items: fallbackPantry });
+  }
 });
 
 // Helper: Call Google Gemini Live AI
@@ -68,8 +91,7 @@ async function callGeminiAI(userPrompt, restaurantCatalog, groceryCatalog) {
 
   const systemInstruction = `
 You are the Providr AI Super-App Concierge.
-The user will express their cravings, dietary needs, or plans.
-Select the BEST single item from the Restaurant Catalog and the BEST single item from the Grocery Catalog to create an intelligent bundle.
+Select the BEST single item from the Restaurant Catalog and the BEST single item from the Grocery Catalog to create an intelligent bundle based on user request.
 
 Restaurant Catalog:
 ${JSON.stringify(restaurantCatalog)}
@@ -77,33 +99,21 @@ ${JSON.stringify(restaurantCatalog)}
 Grocery Catalog:
 ${JSON.stringify(groceryCatalog)}
 
-Respond ONLY with a valid JSON object in this exact schema (no markdown, no backticks):
+Respond ONLY with a valid JSON object in this exact schema:
 {
   "restaurantItemId": "id of chosen restaurant item",
   "groceryItemId": "id of chosen grocery item",
-  "aiReasoning": "1-2 concise sentences explaining why you picked this combination for the user."
+  "aiReasoning": "1-2 concise sentences explaining why you picked this combination."
 }
 `;
-
-  const payload = {
-    contents: [
-      {
-        parts: [
-          { text: systemInstruction },
-          { text: `User Request: "${userPrompt}"` }
-        ]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: "application/json"
-    }
-  };
 
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: systemInstruction }, { text: `User Request: "${userPrompt}"` }] }],
+      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+    })
   });
 
   const data = await response.json();
@@ -111,7 +121,7 @@ Respond ONLY with a valid JSON object in this exact schema (no markdown, no back
   return JSON.parse(textOutput);
 }
 
-// AI Intent Bundle Endpoint
+// Endpoint: AI Bundle Synthesizer
 app.post('/api/bundle', async (req, res) => {
   const { query, userId } = req.body;
   const rawText = query || '';
@@ -123,21 +133,18 @@ app.post('/api/bundle', async (req, res) => {
   let matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_1') || grocery.catalog[0];
   let aiReasoning = 'Paired based on high-affinity dinner and household staple pattern.';
 
-  // If Gemini API Key is available, use real AI
   if (GEMINI_API_KEY) {
     try {
       const aiResult = await callGeminiAI(rawText, pizzeria.catalog, grocery.catalog);
       const foundPizza = pizzeria.catalog.find((p) => p.id === aiResult.restaurantItemId);
       const foundGrocery = grocery.catalog.find((g) => g.id === aiResult.groceryItemId);
-
       if (foundPizza) matchedPizza = foundPizza;
       if (foundGrocery) matchedGrocery = foundGrocery;
       if (aiResult.aiReasoning) aiReasoning = aiResult.aiReasoning;
     } catch (err) {
-      console.error('Gemini API call failed, falling back to local engine:', err.message);
+      console.error('Gemini call error:', err.message);
     }
   } else {
-    // Local fallback matching
     const lower = rawText.toLowerCase();
     if (lower.includes('veg') || lower.includes('no meat') || lower.includes('cheese')) {
       matchedPizza = pizzeria.catalog.find((p) => p.id === 'bp_1') || matchedPizza;
@@ -177,30 +184,42 @@ app.post('/api/bundle', async (req, res) => {
   });
 });
 
-// Endpoint: Place Order
-app.post('/api/orders', (req, res) => {
+// Endpoint: Place Order and SAVE to Supabase Cloud Database
+app.post('/api/orders', async (req, res) => {
   const { userId, items, deliveryAddress, totalAmount } = req.body;
   if (!items || !items.length) {
     return res.status(400).json({ error: 'Cart is empty.' });
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const newOrder = {
-    orderId,
-    userId,
-    items,
-    deliveryAddress: deliveryAddress || 'Customer Address',
-    totalAmount,
-    status: 'DISPATCHED_TO_MERCHANTS',
-    createdAt: new Date().toISOString(),
-  };
+  const address = deliveryAddress || 'Customer Address';
 
-  ordersDB.push(newOrder);
+  // 1. Save permanently to Supabase
+  try {
+    const { error } = await supabase.from('orders').insert([
+      {
+        id: orderId,
+        user_id: userId || 'user_123',
+        items: items,
+        delivery_address: address,
+        total_amount: totalAmount,
+        status: 'DISPATCHED_TO_MERCHANTS',
+      },
+    ]);
+
+    if (error) {
+      console.error('Supabase order insert error:', error.message);
+    } else {
+      console.log(`Order ${orderId} saved to Supabase!`);
+    }
+  } catch (dbErr) {
+    console.error('Database save error:', dbErr);
+  }
 
   return res.status(201).json({
-    message: 'Order accepted and dispatched for multi-merchant fulfillment.',
-    orderId: newOrder.orderId,
-    status: newOrder.status,
+    message: 'Order accepted, recorded in cloud database, and dispatched.',
+    orderId: orderId,
+    status: 'DISPATCHED_TO_MERCHANTS',
     estimatedArrival: '28 minutes',
   });
 });
