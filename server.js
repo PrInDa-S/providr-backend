@@ -3,6 +3,15 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable CORS so mobile APK and browsers never get blocked
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // Stripe Configuration
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_51UJxTXAseCsCY4dButLqpWRJYN7YA13844YRYjLOOZyRQBk1ASWLgeqga9wsN5WdEi7EoDUG1tnv4ATyP9ShvK6W00eLBpU72a';
 const stripe = require('stripe')(STRIPE_SECRET_KEY);
@@ -108,7 +117,6 @@ app.get('/api/pantry/:userId', async (req, res) => {
 async function callGeminiAI(userPrompt, allRestaurants, groceryCatalog) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
   
-  // Flatten restaurants items
   const allRestaurantItems = allRestaurants.flatMap((r) =>
     r.catalog.map((c) => ({ ...c, restaurantName: r.name }))
   );
@@ -155,13 +163,15 @@ app.post('/api/bundle', async (req, res) => {
   const restaurants = merchantsDB.filter((m) => m.type === 'restaurant');
   const grocery = merchantsDB.find((m) => m.id === 'm_grocery');
 
-  // Default baseline
-  let matchedPizza = restaurants.catalog; // Pepperoni
-  let matchedRestaurantName = restaurants.name;
-  let matchedGrocery = grocery.catalog[0]; // Milk
-  let aiReasoning = 'Paired based on high-affinity dinner and household staple pattern.';
+  // Guaranteed safe defaults
+  const defaultRestaurant = restaurants.find((r) => r.id === 'm_pizzeria') || restaurants[0];
+  let matchedPizza = defaultRestaurant.catalog || defaultRestaurant.catalog[0];
+  let matchedRestaurantName = defaultRestaurant.name;
+  let matchedGrocery = grocery.catalog[0];
+  let aiReasoning = 'Paired based on dinner preference and household staples.';
 
-  // 1. Check with Gemini AI first
+  // 1. Check with Gemini AI first if key exists
+  let geminiSuccess = false;
   if (GEMINI_API_KEY) {
     try {
       const aiResult = await callGeminiAI(rawText, restaurants, grocery.catalog);
@@ -170,6 +180,7 @@ app.post('/api/bundle', async (req, res) => {
         if (item) {
           matchedPizza = item;
           matchedRestaurantName = r.name;
+          geminiSuccess = true;
           break;
         }
       }
@@ -179,41 +190,37 @@ app.post('/api/bundle', async (req, res) => {
     } catch (err) {
       console.error('Gemini call error:', err.message);
     }
-  } else {
-    // 2. Intelligent Rule-Based Fallback for multiple cuisines
+  }
+
+  // 2. Fallback logic if Gemini is not set or failed
+  if (!geminiSuccess) {
     if (lower.includes('korean') || lower.includes('japan') || lower.includes('sushi') || lower.includes('ramen') || lower.includes('bento')) {
-      if (lower.includes('3') || lower.includes('three') || lower.includes('friends') || lower.includes('family')) {
-        matchedPizza = restaurants[0].catalog; // 3-Person Bibimbap Platter
-      } else {
-        matchedPizza = restaurants[0].catalog[0]; // Teriyaki Bento
-      }
-      matchedRestaurantName = restaurants[0].name;
-      matchedGrocery = grocery.catalog; // Japanese Green Tea
+      const asian = restaurants.find((r) => r.id === 'm_asian') || restaurants[0];
+      matchedPizza = (lower.includes('3') || lower.includes('three') || lower.includes('friends')) ? asian.catalog : asian.catalog[0];
+      matchedRestaurantName = asian.name;
+      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_7') || grocery.catalog[0];
       aiReasoning = 'Matched Tokyo & Seoul Asian Kitchen with chilled Japanese Green Tea.';
-    } else if (lower.includes('biryani') || lower.includes('desi') || lower.includes('karahi') || lower.includes('handi') || lower.includes('kabab')) {
-      matchedPizza = restaurants.catalog[0]; // Mutton Biryani Family Pack
-      matchedRestaurantName = restaurants.name;
-      matchedGrocery = grocery.catalog; // Sparkling Water
+    } else if (lower.includes('biryani') || lower.includes('desi') || lower.includes('karahi') || lower.includes('pakistan')) {
+      const desi = restaurants.find((r) => r.id === 'm_desi') || restaurants[0];
+      matchedPizza = desi.catalog[0];
+      matchedRestaurantName = desi.name;
+      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_4') || grocery.catalog[0];
       aiReasoning = 'Matched Lahori Dera Mutton Dum Biryani with chilled mineral water.';
-    } else if (lower.includes('burger') || lower.includes('fries') || lower.includes('chicken sandwich')) {
-      matchedPizza = restaurants.catalog[0]; // Double Smash Burger
-      matchedRestaurantName = restaurants.name;
-      matchedGrocery = grocery.catalog; // Artisan Gelato
+    } else if (lower.includes('burger') || lower.includes('fries') || lower.includes('chicken')) {
+      const burger = restaurants.find((r) => r.id === 'm_burger') || restaurants[0];
+      matchedPizza = burger.catalog[0];
+      matchedRestaurantName = burger.name;
+      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_6') || grocery.catalog[0];
       aiReasoning = 'Matched The Smash Burger & Co. with Artisan Gelato dessert.';
     } else if (lower.includes('veg') || lower.includes('cheese')) {
-      matchedPizza = restaurants.catalog[0]; // Margherita Pizza
-      matchedRestaurantName = restaurants.name;
+      const pizza = restaurants.find((r) => r.id === 'm_pizzeria') || restaurants[0];
+      matchedPizza = pizza.catalog[0];
+      matchedRestaurantName = pizza.name;
       aiReasoning = 'Vegetarian preference detected: Selected Margherita 12".';
-    }
-
-    if (lower.includes('dessert') || lower.includes('sweet') || lower.includes('ice cream') || lower.includes('gelato')) {
-      matchedGrocery = grocery.catalog;
-    } else if (lower.includes('pancake') || lower.includes('breakfast')) {
-      matchedGrocery = grocery.catalog;
     }
   }
 
-  const bundlePrice = Number((matchedPizza.price + matchedGrocery.price).toFixed(2));
+  const bundlePrice = Number((Number(matchedPizza.price || 0) + Number(matchedGrocery.price || 0)).toFixed(2));
 
   return res.status(200).json({
     queryReceived: query,
