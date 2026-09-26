@@ -301,8 +301,8 @@ app.post('/api/confirm-payment', async (req, res) => {
 });
 
 // Serve Merchant Kitchen Portal
-app.get('/merchant', (req, res) => {
-  res.sendFile(__dirname + '/merchant.html');
+app.get('/courier', (req, res) => {
+  res.sendFile(__dirname + '/courier.html');
 });
 
 // Merchant API: Fetch recent orders
