@@ -3,31 +3,138 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Providr — Unified Delivery</title>
+  <title>Providr — AI Concierge & Delivery</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0d0f12; color: #fff; display: flex; justify-content: center; padding: 20px; }
+    body { background: #0b0d11; color: #fff; display: flex; justify-content: center; padding: 18px; }
     .container { width: 100%; max-width: 480px; }
-    h1 { font-size: 28px; margin-bottom: 6px; }
-    p.subtitle { color: #9aa0a6; font-size: 14px; margin-bottom: 24px; }
-    .card { background: #1a1d24; border: 1px solid #2b303c; border-radius: 12px; padding: 18px; margin-bottom: 20px; }
-    textarea { width: 100%; background: #0d0f12; border: 1px solid #2b303c; border-radius: 8px; color: #fff; padding: 12px; font-size: 15px; resize: none; height: 80px; margin-bottom: 12px; }
-    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
-    .btn-primary { background: #2563eb; color: #fff; }
-    .btn-success { background: #10b981; color: #fff; margin-top: 14px; }
-    .btn-outline { background: #161920; border: 1px solid #38bdf8; color: #38bdf8; width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 14px; }
+    
+    /* Header */
+    h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    p.subtitle { color: #9aa0a6; font-size: 13px; margin-bottom: 20px; }
+
+    /* Dedicated Gemini AI Box */
+    .gemini-card {
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9));
+      border: 1.5px solid #818cf8;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    }
+    .gemini-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .gemini-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(90deg, #6366f1, #a855f7);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    
+    /* Language Selector */
+    .lang-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .lang-btn {
+      background: #1e2430;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .lang-btn.active {
+      background: #4f46e5;
+      border-color: #818cf8;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      background: #06080c;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #fff;
+      padding: 12px;
+      font-size: 15px;
+      resize: none;
+      height: 75px;
+      margin-bottom: 12px;
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 8px; }
+    button { padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .btn-gemini {
+      flex: 1;
+      background: linear-gradient(90deg, #4f46e5, #9333ea);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-mic {
+      background: #1e2430;
+      border: 1px solid #475569;
+      color: #38bdf8;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-mic.listening {
+      background: #dc2626;
+      border-color: #ef4444;
+      color: #fff;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    /* Bundle Card */
+    .card { background: #131720; border: 1px solid #232b3b; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
     .bundle-item { display: flex; justify-content: space-between; margin-bottom: 12px; }
-    .merchant { font-size: 12px; color: #9aa0a6; }
-    .price { font-weight: 600; }
-    .divider { height: 1px; background: #2b303c; margin: 14px 0; }
-    .status-box { background: #112233; border-left: 4px solid #38bdf8; padding: 12px; border-radius: 6px; margin-top: 14px; }
-    .status-text { color: #38bdf8; font-size: 13px; font-weight: 600; }
-    /* Pantry styles */
-    .pantry-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2b303c; }
+    .merchant { font-size: 12px; color: #94a3b8; }
+    .price { font-weight: 600; font-size: 15px; }
+    .divider { height: 1px; background: #232b3b; margin: 12px 0; }
+    
+    /* AI Explanation Badge */
+    .ai-reasoning-box {
+      background: rgba(99, 102, 241, 0.1);
+      border-left: 3px solid #818cf8;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: #c7d2fe;
+      line-height: 1.4;
+    }
+
+    .btn-success { width: 100%; background: #10b981; color: #fff; margin-top: 10px; }
+    .status-box { background: #0c4a6e; border-left: 4px solid #38bdf8; padding: 12px; border-radius: 6px; margin-top: 14px; font-size: 13px; }
+    
+    /* Pantry */
+    .pantry-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #232b3b; }
     .badge { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 12px; }
     .badge-in { background: rgba(16, 185, 129, 0.2); color: #10b981; }
     .badge-low { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
     .badge-out { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .btn-outline { background: #1e2430; border: 1px solid #38bdf8; color: #38bdf8; padding: 6px 12px; font-size: 12px; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -35,16 +142,40 @@
     <h1>Providr</h1>
     <p class="subtitle">AI-Native Restaurant & Grocery Synchronization</p>
 
-    <!-- Ordering Section -->
-    <div class="card">
-      <textarea id="intentInput" placeholder="What are you craving or needing? (e.g. pizza and milk)"></textarea>
-      <button class="btn-primary" onclick="generateBundle()">Synthesize Order</button>
+    <!-- Distinct Gemini AI Card -->
+    <div class="gemini-card">
+      <div class="gemini-header">
+        <span class="gemini-badge">✨ Gemini AI Engine</span>
+        <span id="voiceStatus" style="font-size: 12px; color: #94a3b8;">Voice Ready</span>
+      </div>
+
+      <!-- Language selector for Voice -->
+      <div class="lang-row">
+        <button class="lang-btn active" onclick="setLang('en-US', this)">🇬🇧 English</button>
+        <button class="lang-btn" onclick="setLang('ur-PK', this)">🇵🇰 اردو (Urdu)</button>
+        <button class="lang-btn" onclick="setLang('ar-SA', this)">🇸🇦 العربية</button>
+        <button class="lang-btn" onclick="setLang('es-ES', this)">🇪🇸 Español</button>
+      </div>
+
+      <textarea id="intentInput" placeholder="Speak or type: 'Dinner for 3, one vegetarian, plus dessert' or 'کچھ میٹھا اور پیزا چاہیے'"></textarea>
+
+      <div class="btn-row">
+        <button id="micBtn" class="btn-mic" onclick="toggleVoice()">
+          <span id="micIcon">🎙️</span> <span id="micLabel">Speak</span>
+        </button>
+        <button class="btn-gemini" onclick="generateBundle()">
+          <span>✨ Synthesize with Gemini</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Smart Bundle Section -->
+    <!-- Smart Bundle Display -->
     <div id="bundleContainer" style="display: none;" class="card">
-      <div style="color: #38bdf8; font-size: 12px; font-weight: 700; margin-bottom: 12px;">SMART BUNDLE READY</div>
+      <div style="color: #818cf8; font-size: 12px; font-weight: 700; margin-bottom: 10px;">SMART BUNDLE READY</div>
       
+      <!-- AI Explanation -->
+      <div id="aiReasoning" class="ai-reasoning-box"></div>
+
       <div class="bundle-item">
         <div>
           <div id="restaurantName" style="font-weight: 600;"></div>
@@ -64,52 +195,126 @@
       <div class="divider"></div>
       
       <div class="bundle-item" style="font-size: 17px;">
-        <span>Total</span>
-        <span id="totalPrice" style="color: #10b981;"></span>
+        <span>Combined Total</span>
+        <span id="totalPrice" style="color: #10b981; font-weight: 800;"></span>
       </div>
 
       <button class="btn-success" onclick="placeOrder()">Pay & Dispatch Courier</button>
       <div id="orderStatus" style="display: none;" class="status-box"></div>
     </div>
 
-    <!-- Virtual Pantry Section -->
+    <!-- Virtual Pantry -->
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="font-size: 18px;">Virtual Pantry</h3>
+        <h3 style="font-size: 17px;">Virtual Pantry</h3>
         <button class="btn-outline" onclick="loadPantry()">↻ Sync Pantry State</button>
       </div>
-      <div id="pantryList">
-        <p style="color: #9aa0a6; font-size: 14px;">Tap 'Sync Pantry State' to load inventory.</p>
-      </div>
+      <div id="pantryList"></div>
     </div>
   </div>
 
   <script>
     let currentBundle = null;
+    let selectedLang = 'en-US';
+    let recognition = null;
+    let isListening = false;
+
+    // Initialize Web Speech API
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('micBtn').classList.add('listening');
+        document.getElementById('micLabel').innerText = 'Listening...';
+        document.getElementById('voiceStatus').innerText = 'Listening in ' + selectedLang;
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('intentInput').value = transcript;
+        document.getElementById('voiceStatus').innerText = 'Captured!';
+        // Auto trigger Gemini on voice complete
+        generateBundle();
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech error:', event.error);
+        document.getElementById('voiceStatus').innerText = 'Mic error: ' + event.error;
+        stopVoice();
+      };
+
+      recognition.onend = () => {
+        stopVoice();
+      };
+    } else {
+      document.getElementById('voiceStatus').innerText = 'Voice not supported in this browser';
+    }
+
+    function setLang(langCode, btn) {
+      selectedLang = langCode;
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (recognition) recognition.lang = selectedLang;
+    }
+
+    function toggleVoice() {
+      if (!recognition) {
+        alert('Voice recognition requires Chrome, Edge, or Safari over HTTPS.');
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+        stopVoice();
+      } else {
+        recognition.lang = selectedLang;
+        recognition.start();
+      }
+    }
+
+    function stopVoice() {
+      isListening = false;
+      document.getElementById('micBtn').classList.remove('listening');
+      document.getElementById('micLabel').innerText = 'Speak';
+      document.getElementById('voiceStatus').innerText = 'Voice Ready';
+    }
 
     async function generateBundle() {
       const query = document.getElementById('intentInput').value;
       if (!query.trim()) return;
 
-      const res = await fetch('/api/bundle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, userId: 'user_123' })
-      });
-      const data = await res.json();
-      currentBundle = data.suggestion;
+      const btn = document.querySelector('.btn-gemini');
+      btn.innerText = '✨ Gemini is Thinking...';
 
-      document.getElementById('restaurantName').innerText = currentBundle.restaurantItem.name;
-      document.getElementById('restaurantMerchant').innerText = currentBundle.restaurantItem.merchant;
-      document.getElementById('restaurantPrice').innerText = '€' + Number(currentBundle.restaurantItem.price || 0).toFixed(2);
+      try {
+        const res = await fetch('/api/bundle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, userId: 'user_123' })
+        });
+        const data = await res.json();
+        currentBundle = data.suggestion;
 
-      document.getElementById('groceryName').innerText = currentBundle.groceryItem.name;
-      document.getElementById('groceryMerchant').innerText = currentBundle.groceryItem.merchant;
-      document.getElementById('groceryPrice').innerText = '€' + Number(currentBundle.groceryItem.price || 0).toFixed(2);
+        document.getElementById('aiReasoning').innerText = '✨ Gemini AI: ' + currentBundle.aiReasoning;
+        document.getElementById('restaurantName').innerText = currentBundle.restaurantItem.name;
+        document.getElementById('restaurantMerchant').innerText = currentBundle.restaurantItem.merchant;
+        document.getElementById('restaurantPrice').innerText = '€' + Number(currentBundle.restaurantItem.price || 0).toFixed(2);
 
-      document.getElementById('totalPrice').innerText = '€' + Number(currentBundle.bundlePrice || 0).toFixed(2);
-      document.getElementById('bundleContainer').style.display = 'block';
-      document.getElementById('orderStatus').style.display = 'none';
+        document.getElementById('groceryName').innerText = currentBundle.groceryItem.name;
+        document.getElementById('groceryMerchant').innerText = currentBundle.groceryItem.merchant;
+        document.getElementById('groceryPrice').innerText = '€' + Number(currentBundle.groceryItem.price || 0).toFixed(2);
+
+        document.getElementById('totalPrice').innerText = '€' + Number(currentBundle.bundlePrice || 0).toFixed(2);
+        document.getElementById('bundleContainer').style.display = 'block';
+        document.getElementById('orderStatus').style.display = 'none';
+      } catch (err) {
+        console.error(err);
+      } finally {
+        btn.innerText = '✨ Synthesize with Gemini';
+      }
     }
 
     async function placeOrder() {
@@ -127,7 +332,7 @@
       const data = await res.json();
       const statusBox = document.getElementById('orderStatus');
       statusBox.style.display = 'block';
-      statusBox.innerHTML = `<div class="status-text">${data.message}</div>
+      statusBox.innerHTML = `<div style="color: #38bdf8; font-weight: 700;">${data.message}</div>
                              <div style="font-size: 12px; margin-top: 4px; color: #cbd5e1;">Tracking ID: ${data.orderId} | ETA: ${data.estimatedArrival}</div>`;
     }
 
@@ -155,7 +360,6 @@
       });
     }
 
-    // Auto-load pantry on open
     loadPantry();
   </script>
 </body>
