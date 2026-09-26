@@ -18,8 +18,40 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Merchants Catalog
+// Multi-Cuisine Merchants Catalog
 const merchantsDB = [
+  {
+    id: 'm_asian',
+    name: 'Tokyo & Seoul Asian Kitchen',
+    type: 'restaurant',
+    prepTimeMinutes: 18,
+    catalog: [
+      { id: 'as_1', name: 'Japanese Chicken Teriyaki Bento', price: 14.50, description: 'Japanese Bento box with glazed teriyaki chicken, steamed jasmine rice, edamame, and gyoza.' },
+      { id: 'as_2', name: 'Korean Kimchi & Beef Bibimbap (3-Person Platter)', price: 24.00, description: 'Large Korean shared bowl with marinated bulgogi beef, warm rice, seasoned vegetables, and gochujang sauce.' },
+      { id: 'as_3', name: 'Spicy Miso Tokyo Ramen', price: 13.00, description: 'Rich ramen broth, springy noodles, soft-boiled egg, and nori seaweed.' },
+    ],
+  },
+  {
+    id: 'm_desi',
+    name: 'Lahori Dera & Karahi Grill',
+    type: 'restaurant',
+    prepTimeMinutes: 20,
+    catalog: [
+      { id: 'ds_1', name: 'Special Mutton Dum Biryani (Family Pack)', price: 18.50, description: 'Fragrant basmati rice layered with tender mutton, saffron, and raita.' },
+      { id: 'ds_2', name: 'Chicken Makhni Handi with 4 Garlic Naans', price: 16.00, description: 'Creamy butter chicken handi cooked in traditional clay pot with fresh naans.' },
+      { id: 'ds_3', name: 'Reshmi Seekh Kabab Platter', price: 12.50, description: '6 succulent grilled chicken kababs with mint chutney.' },
+    ],
+  },
+  {
+    id: 'm_burger',
+    name: 'The Smash Burger & Co.',
+    type: 'restaurant',
+    prepTimeMinutes: 12,
+    catalog: [
+      { id: 'bg_1', name: 'Double Smash Cheeseburger & Truffle Fries', price: 13.50, description: 'Two smashed angus patties, melted cheddar, caramelized onions, house burger sauce.' },
+      { id: 'bg_2', name: 'Crispy Nashville Hot Chicken Sandwich', price: 11.50, description: 'Crispy fried chicken breast, spicy cayenne oil, dill pickles, brioche bun.' },
+    ],
+  },
   {
     id: 'm_pizzeria',
     name: 'Bella Napoli Woodfired Pizza',
@@ -33,7 +65,7 @@ const merchantsDB = [
   },
   {
     id: 'm_grocery',
-    name: 'QuickHub Local Essentials',
+    name: 'QuickHub Local Essentials & Drinks',
     type: 'grocery',
     prepTimeMinutes: 4,
     catalog: [
@@ -43,6 +75,7 @@ const merchantsDB = [
       { id: 'qh_4', name: 'Sparkling Mineral Water (1L)', price: 0.99, description: 'Refreshing sparkling zero-calorie hydration.' },
       { id: 'qh_5', name: 'Farm Fresh Eggs (6-Pack)', price: 2.49, description: 'Free-range brown eggs for baking or breakfast.' },
       { id: 'qh_6', name: 'Artisan Gelato Tub (500ml)', price: 5.50, description: 'Cold creamy Italian gelato dessert.' },
+      { id: 'qh_7', name: 'Japanese Green Tea (500ml Chilled)', price: 2.20, description: 'Chilled unsweetened green tea bottle.' },
     ],
   },
 ];
@@ -71,24 +104,31 @@ app.get('/api/pantry/:userId', async (req, res) => {
   }
 });
 
-// Helper: Call Google Gemini Live AI
-async function callGeminiAI(userPrompt, restaurantCatalog, groceryCatalog) {
+// Helper: Call Google Gemini Live AI with Multi-Cuisine Knowledge
+async function callGeminiAI(userPrompt, allRestaurants, groceryCatalog) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  
+  // Flatten restaurants items
+  const allRestaurantItems = allRestaurants.flatMap((r) =>
+    r.catalog.map((c) => ({ ...c, restaurantName: r.name }))
+  );
+
   const systemInstruction = `
 You are the Providr AI Super-App Concierge.
-Select the BEST single item from the Restaurant Catalog and the BEST single item from the Grocery Catalog to create an intelligent bundle based on user request.
+The user may speak in English, Urdu, or other languages, asking for specific cuisines (Japanese, Korean, Desi/Pakistani, Burgers, Pizza), portions, or dietary restrictions.
+Select the BEST single item from the Restaurant Catalogs and the BEST single item from the Grocery Catalog to fulfill the request.
 
-Restaurant Catalog:
-${JSON.stringify(restaurantCatalog)}
+Available Restaurant Dishes:
+${JSON.stringify(allRestaurantItems)}
 
 Grocery Catalog:
 ${JSON.stringify(groceryCatalog)}
 
-Respond ONLY with a valid JSON object in this exact schema:
+Respond ONLY with a valid JSON object in this exact schema (no markdown, no backticks):
 {
   "restaurantItemId": "id of chosen restaurant item",
   "groceryItemId": "id of chosen grocery item",
-  "aiReasoning": "1-2 concise sentences explaining why you picked this combination."
+  "aiReasoning": "1-2 concise sentences explaining why you picked this exact combination for the customer."
 }
 `;
 
@@ -110,38 +150,66 @@ Respond ONLY with a valid JSON object in this exact schema:
 app.post('/api/bundle', async (req, res) => {
   const { query, userId } = req.body;
   const rawText = query || '';
+  const lower = rawText.toLowerCase();
 
-  const pizzeria = merchantsDB.find((m) => m.id === 'm_pizzeria');
+  const restaurants = merchantsDB.filter((m) => m.type === 'restaurant');
   const grocery = merchantsDB.find((m) => m.id === 'm_grocery');
 
-  let matchedPizza = pizzeria.catalog.find((p) => p.id === 'bp_2') || pizzeria.catalog[0];
-  let matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_1') || grocery.catalog[0];
-  let aiReasoning = 'Paired based on dinner preference and household staples.';
+  // Default baseline
+  let matchedPizza = restaurants.catalog; // Pepperoni
+  let matchedRestaurantName = restaurants.name;
+  let matchedGrocery = grocery.catalog[0]; // Milk
+  let aiReasoning = 'Paired based on high-affinity dinner and household staple pattern.';
 
+  // 1. Check with Gemini AI first
   if (GEMINI_API_KEY) {
     try {
-      const aiResult = await callGeminiAI(rawText, pizzeria.catalog, grocery.catalog);
-      const foundPizza = pizzeria.catalog.find((p) => p.id === aiResult.restaurantItemId);
-      const foundGrocery = grocery.catalog.find((g) => g.id === aiResult.groceryItemId);
-      if (foundPizza) matchedPizza = foundPizza;
-      if (foundGrocery) matchedGrocery = foundGrocery;
+      const aiResult = await callGeminiAI(rawText, restaurants, grocery.catalog);
+      for (const r of restaurants) {
+        const item = r.catalog.find((c) => c.id === aiResult.restaurantItemId);
+        if (item) {
+          matchedPizza = item;
+          matchedRestaurantName = r.name;
+          break;
+        }
+      }
+      const gItem = grocery.catalog.find((g) => g.id === aiResult.groceryItemId);
+      if (gItem) matchedGrocery = gItem;
       if (aiResult.aiReasoning) aiReasoning = aiResult.aiReasoning;
     } catch (err) {
       console.error('Gemini call error:', err.message);
     }
   } else {
-    const lower = rawText.toLowerCase();
-    if (lower.includes('veg') || lower.includes('no meat') || lower.includes('cheese')) {
-      matchedPizza = pizzeria.catalog.find((p) => p.id === 'bp_1') || matchedPizza;
+    // 2. Intelligent Rule-Based Fallback for multiple cuisines
+    if (lower.includes('korean') || lower.includes('japan') || lower.includes('sushi') || lower.includes('ramen') || lower.includes('bento')) {
+      if (lower.includes('3') || lower.includes('three') || lower.includes('friends') || lower.includes('family')) {
+        matchedPizza = restaurants[0].catalog; // 3-Person Bibimbap Platter
+      } else {
+        matchedPizza = restaurants[0].catalog[0]; // Teriyaki Bento
+      }
+      matchedRestaurantName = restaurants[0].name;
+      matchedGrocery = grocery.catalog; // Japanese Green Tea
+      aiReasoning = 'Matched Tokyo & Seoul Asian Kitchen with chilled Japanese Green Tea.';
+    } else if (lower.includes('biryani') || lower.includes('desi') || lower.includes('karahi') || lower.includes('handi') || lower.includes('kabab')) {
+      matchedPizza = restaurants.catalog[0]; // Mutton Biryani Family Pack
+      matchedRestaurantName = restaurants.name;
+      matchedGrocery = grocery.catalog; // Sparkling Water
+      aiReasoning = 'Matched Lahori Dera Mutton Dum Biryani with chilled mineral water.';
+    } else if (lower.includes('burger') || lower.includes('fries') || lower.includes('chicken sandwich')) {
+      matchedPizza = restaurants.catalog[0]; // Double Smash Burger
+      matchedRestaurantName = restaurants.name;
+      matchedGrocery = grocery.catalog; // Artisan Gelato
+      aiReasoning = 'Matched The Smash Burger & Co. with Artisan Gelato dessert.';
+    } else if (lower.includes('veg') || lower.includes('cheese')) {
+      matchedPizza = restaurants.catalog[0]; // Margherita Pizza
+      matchedRestaurantName = restaurants.name;
       aiReasoning = 'Vegetarian preference detected: Selected Margherita 12".';
     }
+
     if (lower.includes('dessert') || lower.includes('sweet') || lower.includes('ice cream') || lower.includes('gelato')) {
-      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_6') || matchedGrocery;
-      aiReasoning += ' Added Artisan Gelato Tub for dessert.';
+      matchedGrocery = grocery.catalog;
     } else if (lower.includes('pancake') || lower.includes('breakfast')) {
-      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_2') || matchedGrocery;
-    } else if (lower.includes('water') || lower.includes('drink')) {
-      matchedGrocery = grocery.catalog.find((g) => g.id === 'qh_4') || matchedGrocery;
+      matchedGrocery = grocery.catalog;
     }
   }
 
@@ -154,7 +222,7 @@ app.post('/api/bundle', async (req, res) => {
       restaurantItem: {
         id: matchedPizza.id,
         name: matchedPizza.name,
-        merchant: pizzeria.name,
+        merchant: matchedRestaurantName,
         price: matchedPizza.price,
       },
       groceryItem: {
@@ -172,15 +240,12 @@ app.post('/api/bundle', async (req, res) => {
 // Endpoint: Create Real Stripe Checkout Session
 app.post('/api/create-checkout-session', async (req, res) => {
   const { items, totalAmount, userId } = req.body;
-
   try {
     const origin = req.headers.origin || 'https://providr-backend.onrender.com';
     const line_items = (items || []).map((item) => ({
       price_data: {
         currency: 'eur',
-        product_data: {
-          name: `${item.name} (${item.merchant || 'Providr'})`,
-        },
+        product_data: { name: `${item.name} (${item.merchant || 'Providr'})` },
         unit_amount: Math.round(Number(item.price || 0) * 100),
       },
       quantity: 1,
@@ -192,15 +257,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
       mode: 'payment',
       success_url: `${origin}/?payment_success=true&session_id={CHECKOUT_SESSION_ID}&total=${totalAmount || 0}`,
       cancel_url: `${origin}/?payment_cancelled=true`,
-      metadata: {
-        userId: userId || 'user_123',
-        itemsJson: JSON.stringify(items || []),
-      },
+      metadata: { userId: userId || 'user_123', itemsJson: JSON.stringify(items || []) },
     });
 
     return res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error('Stripe session creation error:', err);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -209,7 +270,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
 app.post('/api/confirm-payment', async (req, res) => {
   const { sessionId, total } = req.body;
   const orderId = `ORD-PAID-${Date.now()}`;
-
   try {
     await supabase.from('orders').insert([
       {
@@ -232,12 +292,13 @@ app.post('/api/confirm-payment', async (req, res) => {
     estimatedArrival: '28 minutes',
   });
 });
-// Serve the Merchant Portal
+
+// Serve Merchant Kitchen Portal
 app.get('/merchant', (req, res) => {
   res.sendFile(__dirname + '/merchant.html');
 });
 
-// Merchant API: Fetch all recent orders from Supabase
+// Merchant API: Fetch recent orders
 app.get('/api/merchant/orders', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -261,6 +322,7 @@ app.post('/api/merchant/update-status', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Providr backend running on port ${PORT}`);
 });
