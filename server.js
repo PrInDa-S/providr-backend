@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for mobile apps and browsers
+// Enable CORS for mobile apps and web clients
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -27,7 +27,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Multi-Cuisine Merchants Catalog
+// Multi-Cuisine Merchants Catalog (Fallback Baseline)
 const merchantsDB = [
   {
     id: 'm_asian',
@@ -337,6 +337,11 @@ app.get('/courier', (req, res) => {
   res.sendFile(__dirname + '/courier.html');
 });
 
+// 3. Serve Admin Store & Menu Manager
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/admin.html');
+});
+
 // Merchant API: Fetch recent orders
 app.get('/api/merchant/orders', async (req, res) => {
   try {
@@ -357,6 +362,41 @@ app.post('/api/merchant/update-status', async (req, res) => {
   try {
     await supabase.from('orders').update({ status }).eq('id', orderId);
     return res.status(200).json({ success: true, orderId, status });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin API: Fetch all merchants and items from Supabase
+app.get('/api/admin/catalog', async (req, res) => {
+  try {
+    const { data: merchants } = await supabase.from('merchants').select('*');
+    const { data: items } = await supabase.from('menu_items').select('*');
+    return res.status(200).json({ merchants: merchants || [], items: items || [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin API: Add new merchant to Supabase
+app.post('/api/admin/merchants', async (req, res) => {
+  const { id, name, type, prep_time_minutes, address } = req.body;
+  try {
+    const { error } = await supabase.from('merchants').insert([{ id, name, type, prep_time_minutes, address }]);
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({ message: 'Store saved to cloud database!' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin API: Add new menu item to Supabase
+app.post('/api/admin/items', async (req, res) => {
+  const { id, merchant_id, name, price, description } = req.body;
+  try {
+    const { error } = await supabase.from('menu_items').insert([{ id, merchant_id, name, price, description }]);
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({ message: 'Item added to cloud database!' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
