@@ -3,193 +3,365 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Providr — AI Delivery with Live GPS</title>
+  <title>MAISON — Private Culinary Concierge</title>
+  <!-- Google Luxury Fonts: Playfair Display & Cinzel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0b0d11; color: #fff; display: flex; justify-content: center; padding: 18px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body {
+      background-color: #08080a;
+      color: #f1f1f3;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px;
+      background-image: radial-gradient(circle at 50% 0%, rgba(197, 160, 89, 0.08) 0%, transparent 60%);
+    }
     .container { width: 100%; max-width: 480px; }
     
-    h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-    p.subtitle { color: #9aa0a6; font-size: 13px; margin-bottom: 20px; }
-
-    /* Success Card with WhatsApp */
-    .success-card {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1.5px solid #10b981;
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 18px;
-      text-align: center;
-    }
-    .btn-whatsapp-share {
-      background: #25d366;
-      color: #000;
+    /* Header Brand */
+    .brand-header { text-align: center; margin-bottom: 30px; }
+    .brand-title {
+      font-family: 'Cinzel', serif;
+      font-size: 26px;
       font-weight: 800;
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
+      letter-spacing: 5px;
+      color: #f5f5f7;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .brand-subtitle {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: #c5a059;
+      font-size: 13px;
+      letter-spacing: 1px;
+    }
+
+    /* Luxury Concierge Card */
+    .concierge-card {
+      background: rgba(18, 18, 22, 0.85);
+      border: 1px solid rgba(197, 160, 89, 0.3);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .concierge-tag {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #c5a059;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .voice-status {
+      font-size: 11px;
+      color: #71717a;
+      letter-spacing: 0.5px;
+    }
+
+    /* Language Selection */
+    .lang-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .lang-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #a1a1aa;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
       cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .lang-btn.active {
+      border-color: #c5a059;
+      color: #c5a059;
+      background: rgba(197, 160, 89, 0.08);
+      font-weight: 600;
+    }
+
+    /* Luxury Input Box */
+    textarea {
+      width: 100%;
+      background: #0d0d10;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: #f4f4f5;
+      padding: 14px;
       font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      height: 80px;
+      margin-bottom: 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    textarea:focus { outline: none; border-color: rgba(197, 160, 89, 0.6); }
+
+    /* Button Styling */
+    .action-row { display: flex; gap: 10px; }
+    .btn-gold {
+      flex: 1;
+      background: linear-gradient(135deg, #c5a059 0%, #a47e38 100%);
+      color: #08080a;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-gold:hover { opacity: 0.92; }
+    
+    .btn-mic {
+      background: #141418;
+      border: 1px solid rgba(197, 160, 89, 0.3);
+      color: #c5a059;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 6px;
-      margin-top: 10px;
+    }
+    .btn-mic.listening {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
     }
 
-    /* Gemini Card */
-    .gemini-card {
-      background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9));
-      border: 1.5px solid #818cf8;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 18px;
-      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    /* Bespoke Pairing / Bundle Card */
+    .curated-card {
+      background: #121215;
+      border: 1px solid rgba(197, 160, 89, 0.35);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 22px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
     }
-    .gemini-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .gemini-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: linear-gradient(90deg, #6366f1, #a855f7);
-      color: #fff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px;
-      text-transform: uppercase; letter-spacing: 0.8px;
+    .pairing-tag {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #c5a059;
+      text-transform: uppercase;
+      margin-bottom: 12px;
     }
-    .lang-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-    .lang-btn { background: #1e2430; border: 1px solid #334155; color: #94a3b8; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-    .lang-btn.active { background: #4f46e5; border-color: #818cf8; color: #fff; font-weight: 600; }
-    textarea { width: 100%; background: #06080c; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 12px; font-size: 15px; resize: none; height: 75px; margin-bottom: 12px; }
-    .btn-row { display: flex; gap: 8px; }
-    button { padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
-    .btn-gemini { flex: 1; background: linear-gradient(90deg, #4f46e5, #9333ea); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-mic { background: #1e2430; border: 1px solid #475569; color: #38bdf8; padding: 12px 16px; display: flex; align-items: center; gap: 6px; }
-    .btn-mic.listening { background: #dc2626; border-color: #ef4444; color: #fff; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-
-    /* Bundle & Tracking Cards */
-    .card { background: #131720; border: 1px solid #232b3b; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
-    .bundle-item { display: flex; justify-content: space-between; margin-bottom: 12px; }
-    .merchant { font-size: 12px; color: #94a3b8; }
-    .price { font-weight: 600; font-size: 15px; }
-    .divider { height: 1px; background: #232b3b; margin: 12px 0; }
-    .ai-reasoning-box { background: rgba(99, 102, 241, 0.1); border-left: 3px solid #818cf8; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; color: #c7d2fe; line-height: 1.4; }
-    .btn-stripe { width: 100%; background: #635bff; color: #fff; font-size: 16px; font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .sommelier-note {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: #d4d4d8;
+      font-size: 13.5px;
+      line-height: 1.6;
+      border-left: 2px solid #c5a059;
+      padding-left: 12px;
+      margin-bottom: 20px;
+    }
+    .dish-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    .dish-name { font-size: 15px; font-weight: 600; color: #f4f4f5; }
+    .dish-origin { font-size: 11px; color: #71717a; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .dish-price { font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; color: #f5f5f7; }
     
-    /* Live GPS Map */
+    .gold-divider { height: 1px; background: rgba(197, 160, 89, 0.2); margin: 18px 0; }
+    .total-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .total-label { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 2px; color: #a1a1aa; text-transform: uppercase; }
+    .total-val { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 800; color: #c5a059; }
+
+    .btn-reserve {
+      width: 100%;
+      background: #f5f5f7;
+      color: #08080a;
+      border: none;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      margin-top: 18px;
+      cursor: pointer;
+    }
+    .btn-reserve:hover { background: #e4e4e7; }
+
+    /* Private Cellar & Larder (Pantry) */
+    .cellar-card {
+      background: #101014;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+    .cellar-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: #d4d4d8;
+      text-transform: uppercase;
+    }
+    .cellar-sync {
+      background: transparent;
+      border: 1px solid rgba(197, 160, 89, 0.4);
+      color: #c5a059;
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pantry-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .pantry-name { font-size: 13.5px; color: #e4e4e7; font-weight: 500; }
+    .pantry-qty { font-size: 11px; color: #71717a; margin-top: 2px; }
+    .status-pill { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
+    .pill-sufficient { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+    .pill-low { color: #c5a059; background: rgba(197, 160, 89, 0.1); }
+    .pill-out { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+
+    /* Live Chauffeur Radar */
     #mapContainer { display: none; }
-    #map { width: 100%; height: 260px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 14px; }
-    .map-badge { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .eta-timer { font-size: 26px; font-weight: 800; color: #10b981; }
-    .status-stage { font-size: 13px; color: #38bdf8; font-weight: 700; }
-    
-    /* Pantry */
-    .pantry-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #232b3b; }
-    .badge { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 12px; }
-    .badge-in { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-    .badge-low { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-    .badge-out { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-    .btn-outline { background: #1e2430; border: 1px solid #38bdf8; color: #38bdf8; padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+    #map { width: 100%; height: 260px; border-radius: 10px; border: 1px solid rgba(197, 160, 89, 0.3); margin: 14px 0; }
+    .chauffeur-badge { display: flex; justify-content: space-between; align-items: baseline; }
+    .eta-timer { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 800; color: #c5a059; }
+
+    /* Success Card */
+    .success-card {
+      background: rgba(197, 160, 89, 0.08);
+      border: 1px solid #c5a059;
+      border-radius: 14px;
+      padding: 22px;
+      text-align: center;
+      margin-bottom: 22px;
+    }
+    .btn-whatsapp-share {
+      background: #141418;
+      border: 1px solid #25d366;
+      color: #25d366;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Providr</h1>
-    <p class="subtitle">AI-Native Restaurant & Grocery Synchronization</p>
-
-    <!-- Payment Success Notice with WhatsApp Share -->
-    <div id="paymentSuccessNotice" style="display: none;" class="success-card">
-      <div style="font-size: 24px; margin-bottom: 6px;">🎉</div>
-      <h3 style="color: #10b981; font-size: 18px; margin-bottom: 4px;">Payment Succeeded via Stripe!</h3>
-      <p id="paidDetails" style="color: #cbd5e1; font-size: 13px;"></p>
-      <div style="color: #38bdf8; font-weight: 700; font-size: 12px; margin-top: 8px; margin-bottom: 12px;">Order Recorded in Supabase & Dispatched!</div>
-      
-      <button id="whatsappShareBtn" class="btn-whatsapp-share">
-        📲 Share Order Receipt via WhatsApp
-      </button>
+    <!-- Brand Header -->
+    <div class="brand-header">
+      <div class="brand-title">MAISON</div>
+      <div class="brand-subtitle">Private Culinary Concierge & Fine Purveyors</div>
     </div>
 
-    <!-- Live GPS Tracking & Interactive Map -->
-    <div id="mapContainer" class="card">
-      <div class="map-badge">
+    <!-- Success Message -->
+    <div id="paymentSuccessNotice" style="display: none;" class="success-card">
+      <div style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 2px; color: #c5a059; text-transform: uppercase;">Reservation Confirmed</div>
+      <div id="paidDetails" style="font-size: 12px; color: #a1a1aa; margin: 8px 0 14px;"></div>
+      <button id="whatsappShareBtn" class="btn-whatsapp-share">Share Dossier via WhatsApp</button>
+    </div>
+
+    <!-- Live Chauffeur Radar -->
+    <div id="mapContainer" class="curated-card">
+      <div class="chauffeur-badge">
         <div>
-          <div style="font-size: 11px; color: #818cf8; font-weight: 800; letter-spacing: 0.8px;">LIVE COURIER RADAR</div>
-          <div id="liveStatusText" class="status-stage">Courier Dispatched</div>
+          <div class="pairing-tag">CHAUFFEUR IN TRANSIT</div>
+          <div id="liveStatusText" style="font-size: 12px; color: #a1a1aa;">Coordinating collection at Frankfurt purveyors</div>
         </div>
         <div class="eta-timer" id="etaCountdown">28:00</div>
       </div>
-
       <div id="map"></div>
-
-      <div style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
-        <strong>Multi-Stop Route:</strong> QuickHub (Groceries) ➔ Restaurant ➔ Your Location.
-      </div>
+      <div style="font-size: 11px; color: #71717a; letter-spacing: 0.5px;">Frankfurt Diplomatic Corridor • Synchronized White-Glove Dispatch</div>
     </div>
 
-    <!-- Gemini AI Card -->
-    <div class="gemini-card">
-      <div class="gemini-header">
-        <span class="gemini-badge">✨ Gemini AI Engine</span>
-        <span id="voiceStatus" style="font-size: 12px; color: #94a3b8;">Voice Ready</span>
+    <!-- The Concierge AI Card -->
+    <div class="concierge-card">
+      <div class="card-top">
+        <span class="concierge-tag">Bespoke Culinary Request</span>
+        <span id="voiceStatus" class="voice-status">Awaiting Guidance</span>
       </div>
 
       <div class="lang-row">
-        <button class="lang-btn active" onclick="setLang('en-US', this)">🇬🇧 English</button>
-        <button class="lang-btn" onclick="setLang('ur-PK', this)">🇵🇰 اردو (Urdu)</button>
-        <button class="lang-btn" onclick="setLang('ar-SA', this)">🇸🇦 العربية</button>
-        <button class="lang-btn" onclick="setLang('es-ES', this)">🇪🇸 Español</button>
+        <button class="lang-btn active" onclick="setLang('en-US', this)">English</button>
+        <button class="lang-btn" onclick="setLang('ur-PK', this)">اردو</button>
+        <button class="lang-btn" onclick="setLang('ar-SA', this)">العربية</button>
+        <button class="lang-btn" onclick="setLang('de-DE', this)">Deutsch</button>
       </div>
 
-      <textarea id="intentInput" placeholder="Speak or type: 'Dinner for 3, one vegetarian, plus dessert' or 'کچھ میٹھا اور پیزا چاہیے'"></textarea>
+      <textarea id="intentInput" placeholder="Describe your evening (e.g. 'A refined dinner for two featuring woodfired Neapolitan pizza and authentic Italian dessert, paired with sparkling mineral water')"></textarea>
 
-      <div class="btn-row">
+      <div class="action-row">
         <button id="micBtn" class="btn-mic" onclick="toggleVoice()">
-          <span id="micIcon">🎙️</span> <span id="micLabel">Speak</span>
+          <span id="micLabel">Voice</span>
         </button>
-        <button class="btn-gemini" onclick="generateBundle()">
-          <span>✨ Synthesize with Gemini</span>
+        <button class="btn-gold" onclick="generateBundle()">
+          Curate My Evening
         </button>
       </div>
     </div>
 
-    <!-- Smart Bundle Display -->
-    <div id="bundleContainer" style="display: none;" class="card">
-      <div style="color: #818cf8; font-size: 12px; font-weight: 700; margin-bottom: 10px;">SMART BUNDLE READY</div>
+    <!-- Bespoke Pairing Display -->
+    <div id="bundleContainer" style="display: none;" class="curated-card">
+      <div class="pairing-tag">Curated Gastronomic Pairing</div>
       
-      <div id="aiReasoning" class="ai-reasoning-box"></div>
+      <div id="aiReasoning" class="sommelier-note"></div>
 
-      <div class="bundle-item">
+      <!-- Prepared Cuisine -->
+      <div class="dish-row">
         <div>
-          <div id="restaurantName" style="font-weight: 600;"></div>
-          <div id="restaurantMerchant" class="merchant"></div>
+          <div id="restaurantName" class="dish-name"></div>
+          <div id="restaurantMerchant" class="dish-origin"></div>
         </div>
-        <div id="restaurantPrice" class="price"></div>
+        <div id="restaurantPrice" class="dish-price"></div>
       </div>
 
-      <div class="bundle-item">
+      <!-- Chilled Purveyor Item -->
+      <div class="dish-row">
         <div>
-          <div id="groceryName" style="font-weight: 600;"></div>
-          <div id="groceryMerchant" class="merchant"></div>
+          <div id="groceryName" class="dish-name"></div>
+          <div id="groceryMerchant" class="dish-origin"></div>
         </div>
-        <div id="groceryPrice" class="price"></div>
+        <div id="groceryPrice" class="dish-price"></div>
       </div>
 
-      <div class="divider"></div>
-      
-      <div class="bundle-item" style="font-size: 17px;">
-        <span>Combined Total</span>
-        <span id="totalPrice" style="color: #10b981; font-weight: 800;"></span>
+      <div class="gold-divider"></div>
+
+      <div class="total-row">
+        <span class="total-label">Total Consideration</span>
+        <span id="totalPrice" class="total-val"></span>
       </div>
 
-      <button class="btn-stripe" onclick="payWithStripe()">
-        <span>💳 Pay with Stripe Checkout</span>
+      <button class="btn-reserve" onclick="payWithStripe()">
+        Authorize Reservation with Stripe
       </button>
     </div>
 
-    <!-- Virtual Pantry -->
-    <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="font-size: 17px;">Virtual Pantry</h3>
-        <button class="btn-outline" onclick="loadPantry()">↻ Sync Pantry State</button>
+    <!-- Private Cellar & Larder (Pantry) -->
+    <div class="cellar-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <span class="cellar-title">Private Cellar & Larder</span>
+        <button class="cellar-sync" onclick="loadPantry()">Audit Inventory</button>
       </div>
       <div id="pantryList"></div>
     </div>
@@ -216,14 +388,12 @@
           body: JSON.stringify({ sessionId, total })
         });
         const data = await res.json();
-
-        // Show WhatsApp receipt banner
         document.getElementById('paymentSuccessNotice').style.display = 'block';
-        document.getElementById('paidDetails').innerText = `ID: ${data.orderId} • ETA: ${data.estimatedArrival}`;
+        document.getElementById('paidDetails').innerText = `Dossier: ${data.orderId} • Estimated Chauffeur Arrival: ${data.estimatedArrival}`;
         
         const shareBtn = document.getElementById('whatsappShareBtn');
         shareBtn.onclick = () => {
-          const text = `🎉 *Providr Order Confirmed!*%0A%0AOrder ID: *${data.orderId}*%0APayment: Paid via Stripe (€${total})%0AETA: ${data.estimatedArrival}%0A%0ATrack live delivery on radar:%0Ahttps://providr-backend.onrender.com`;
+          const text = `⚜️ *MAISON Private Concierge Confirmation*%0A%0AOrder Dossier: *${data.orderId}*%0AConsideration: Settled (€${total})%0AETA: ${data.estimatedArrival}%0A%0ARadar Tracking:%0Ahttps://providr-backend.onrender.com`;
           window.open(`https://wa.me/?text=${text}`, '_blank');
         };
 
@@ -237,25 +407,26 @@
       container.style.display = 'block';
       container.scrollIntoView({ behavior: 'smooth' });
 
-      const groceryLoc = [50.1109, 8.6821];
-      const pizzeriaLoc = [50.1150, 8.6750];
-      const customerLoc = [50.1230, 8.6650];
+      // Oeder Weg, Frankfurt coordinates
+      const groceryLoc = [50.1185, 8.6822];
+      const pizzeriaLoc = [50.1215, 8.6815];
+      const customerLoc = [50.1280, 8.6750];
 
       if (!map) {
-        map = L.map('map').setView([50.1160, 8.6740], 14);
+        map = L.map('map').setView([50.1210, 8.6800], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        L.marker(groceryLoc).addTo(map).bindPopup('🛒 QuickHub Grocery Hub').openPopup();
-        L.marker(pizzeriaLoc).addTo(map).bindPopup('🍕 Restaurant Kitchen');
-        L.marker(customerLoc).addTo(map).bindPopup('🏠 Customer Location');
+        L.marker(groceryLoc).addTo(map).bindPopup('🛒 Purveyor (REWE City)');
+        L.marker(pizzeriaLoc).addTo(map).bindPopup('🍕 Kitchen (Super Bro\'s)');
+        L.marker(customerLoc).addTo(map).bindPopup('🏠 Residence');
 
         const routeCoords = [groceryLoc, pizzeriaLoc, customerLoc];
-        L.polyline(routeCoords, { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(map);
+        L.polyline(routeCoords, { color: '#c5a059', weight: 3, dashArray: '5, 8' }).addTo(map);
 
         const courierIcon = L.divIcon({
-          html: '<div style="font-size: 26px; transform: translate(-10px, -20px);">🛵</div>',
+          html: '<div style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform: translate(-10px, -20px);">🚗</div>',
           className: 'courier-icon',
           iconSize:
         });
@@ -283,18 +454,18 @@
       const moveInterval = setInterval(() => {
         progress += 0.01;
         if (progress <= 0.45) {
-          statusText.innerText = '📦 Groceries Packed ➔ Picking up hot food';
+          statusText.innerText = 'Collection completed at Oeder Weg purveyor ➔ En route to kitchen';
           const lat = stops[0][0] + (stops[0] - stops[0][0]) * (progress / 0.45);
           const lng = stops[0] + (stops - stops[0]) * (progress / 0.45);
           courierMarker.setLatLng([lat, lng]);
         } else if (progress <= 0.95) {
-          statusText.innerText = '🔥 Meal & Groceries in Thermal Bag ➔ Out For Delivery';
+          statusText.innerText = 'Bespoke order secured ➔ Private chauffeur en route to residence';
           const p = (progress - 0.45) / 0.50;
           const lat = stops[0] + (stops[0] - stops[0]) * p;
           const lng = stops + (stops - stops) * p;
           courierMarker.setLatLng([lat, lng]);
         } else {
-          statusText.innerText = '✅ Courier Arrived! Enjoy your order!';
+          statusText.innerText = 'Chauffeur arrived at private residence';
           courierMarker.setLatLng(stops);
           clearInterval(moveInterval);
         }
@@ -307,7 +478,7 @@
       recognition.onstart = () => {
         isListening = true;
         document.getElementById('micBtn').classList.add('listening');
-        document.getElementById('micLabel').innerText = 'Listening...';
+        document.getElementById('voiceStatus').innerText = 'Listening intently...';
       };
       recognition.onresult = (event) => {
         document.getElementById('intentInput').value = event.results[0][0].transcript;
@@ -316,7 +487,7 @@
       recognition.onend = () => {
         isListening = false;
         document.getElementById('micBtn').classList.remove('listening');
-        document.getElementById('micLabel').innerText = 'Speak';
+        document.getElementById('voiceStatus').innerText = 'Awaiting Guidance';
       };
     }
 
@@ -328,7 +499,7 @@
     }
 
     function toggleVoice() {
-      if (!recognition) return alert('Voice not supported.');
+      if (!recognition) return alert('Speech not supported.');
       if (isListening) { recognition.stop(); } else { recognition.lang = selectedLang; recognition.start(); }
     }
 
@@ -336,8 +507,8 @@
       const query = document.getElementById('intentInput').value;
       if (!query.trim()) return;
 
-      const btn = document.querySelector('.btn-gemini');
-      btn.innerText = '✨ Gemini Thinking...';
+      const btn = document.querySelector('.btn-gold');
+      btn.innerText = 'Curating Gastronomy...';
 
       try {
         const res = await fetch('/api/bundle', {
@@ -348,7 +519,7 @@
         const data = await res.json();
         currentBundle = data.suggestion;
 
-        document.getElementById('aiReasoning').innerText = '✨ Gemini AI: ' + currentBundle.aiReasoning;
+        document.getElementById('aiReasoning').innerText = '“' + currentBundle.aiReasoning + '”';
         document.getElementById('restaurantName').innerText = currentBundle.restaurantItem.name;
         document.getElementById('restaurantMerchant').innerText = currentBundle.restaurantItem.merchant;
         document.getElementById('restaurantPrice').innerText = '€' + Number(currentBundle.restaurantItem.price || 0).toFixed(2);
@@ -359,15 +530,16 @@
 
         document.getElementById('totalPrice').innerText = '€' + Number(currentBundle.bundlePrice || 0).toFixed(2);
         document.getElementById('bundleContainer').style.display = 'block';
+        document.getElementById('bundleContainer').scrollIntoView({ behavior: 'smooth' });
       } finally {
-        btn.innerText = '✨ Synthesize with Gemini';
+        btn.innerText = 'Curate My Evening';
       }
     }
 
     async function payWithStripe() {
       if (!currentBundle) return;
-      const btn = document.querySelector('.btn-stripe');
-      btn.innerText = 'Redirecting to Stripe...';
+      const btn = document.querySelector('.btn-reserve');
+      btn.innerText = 'Securing Allocation...';
 
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -384,7 +556,7 @@
         window.location.href = data.url;
       } else {
         alert('Stripe Error: ' + (data.error || 'Failed to start payment.'));
-        btn.innerText = '💳 Pay with Stripe Checkout';
+        btn.innerText = 'Authorize Reservation with Stripe';
       }
     }
 
@@ -395,18 +567,18 @@
       container.innerHTML = '';
 
       (data.items || []).forEach(item => {
-        let badgeClass = 'badge-in';
-        let label = 'In Stock';
-        if (item.status === 'low') { badgeClass = 'badge-low'; label = 'Running Low'; }
-        if (item.status === 'out_of_stock') { badgeClass = 'badge-out'; label = 'Out of Stock'; }
+        let pillClass = 'pill-sufficient';
+        let label = 'Full Stock';
+        if (item.status === 'low') { pillClass = 'pill-low'; label = 'Depleted'; }
+        if (item.status === 'out_of_stock') { pillClass = 'pill-out'; label = 'Exhausted'; }
 
         container.innerHTML += `
           <div class="pantry-row">
             <div>
-              <div style="font-weight: 600; font-size: 15px;">${item.name}</div>
-              <div style="color: #80868b; font-size: 12px;">${item.quantity}</div>
+              <div class="pantry-name">${item.name}</div>
+              <div class="pantry-qty">${item.quantity}</div>
             </div>
-            <span class="badge ${badgeClass}">${label}</span>
+            <span class="status-pill ${pillClass}">${label}</span>
           </div>
         `;
       });
