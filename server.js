@@ -248,7 +248,7 @@ app.post('/api/bundle', async (req, res) => {
 app.post('/api/create-checkout-session', async (req, res) => {
   const { items, totalAmount, userId } = req.body;
   try {
-    const origin = req.headers.origin || 'https://providr-backend.onrender.com';
+    const origin = 'https://msomior.com';
     const line_items = (items || []).map((item) => ({
       price_data: {
         currency: 'eur',
